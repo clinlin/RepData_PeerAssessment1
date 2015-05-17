@@ -1,0 +1,98 @@
+## Assignment#1 (for Reproducible Research)
+
+### Loading & preprocessing the data
+```{r}
+## Include all the necessary libraries
+library(ggplot2)
+
+## Load the data from local directory
+activity<-read.csv("./activity.csv")
+```
+
+### What is mean total number of steps taken per day
+```{r}
+## Find the total number of steps taken per day
+totalsteps <- data.frame(aggregate(steps ~ date, activity, sum))
+totalsteps$month<-as.factor(months(as.Date(as.character(totalsteps$date))))
+totalsteps$day<-format(as.Date(as.character(totalsteps$date)), "%d")
+totalsteps$month<-factor(totalsteps$month, levels=c("October","November"))
+
+## Plot two histograms (by month) of total number of steps per day
+qplot(day, data=totalsteps, weight=steps, facets=.~month,
+      xlab="Date in 2012",ylab="No. of Steps", main="Total Steps Per Day")
+
+## Calculate the mean & median of total steps per day
+meansteps <- data.frame(aggregate(steps ~ date, activity, mean))
+mediansteps <- data.frame(aggregate(steps ~ date, activity, median))
+
+## Make it into a table
+mergeData <- merge(meansteps, mediansteps, by.x="date", by.y="date")
+colnames(mergeData)[2:3]<-c("mean","median")
+print(mergeData, type="html")
+```
+
+### What is the average daily activity pattern ?
+```{r}
+## Find the average number of steps per 5-min interval and plot out a line graph
+avgsteps <- data.frame(aggregate(steps ~ interval, activity, mean))
+qplot(interval, steps, data=avgsteps, geom="line", ylab="Steps",
+      xlab="Time of Day", main="Average Number of Steps Per 5-min Interval")
+
+## Find the interval that contains maximum average number of steps
+avgsteps[avgsteps$steps==max(avgsteps$steps),]
+```
+
+### Imputing missing values
+```{r}
+## Find the total number of missing values
+sum(is.na(activity$steps))
+
+## Create a new dataset with no missing values by replacing them with interval mean
+activity2<-activity
+for (i in seq_len(nrow(activity2))) {
+  if (is.na(activity2$steps[i])) {
+    temp=activity2$interval[i]
+    activity2$steps[i]<-as.integer(avgsteps[avgsteps$interval==temp,]$steps
+                                     +0.5)
+  }
+}
+
+## Find the new total number of steps taken per day
+totalsteps2 <- data.frame(aggregate(steps ~ date, activity2, sum))
+totalsteps2$month<-as.factor(months(as.Date(as.character(totalsteps2$date))))
+totalsteps2$day<-format(as.Date(as.character(totalsteps2$date)), "%d")
+totalsteps2$month<-factor(totalsteps2$month, levels=c("October","November"))
+  
+## Plot two histograms (by month) of new total number of steps per day
+qplot(day, data=totalsteps2, weight=steps, facets=.~month,
+      xlab="Date in 2012",ylab="No. of Steps", main="Total Steps Per Day")
+
+## Calculate the new mean & median of total steps per day
+meansteps2 <- data.frame(aggregate(steps ~ date, activity2, mean))
+mediansteps2 <- data.frame(aggregate(steps ~ date, activity2, median))
+
+## Make it into a table
+mergeData2 <- merge(meansteps2, mediansteps2, by.x="date", by.y="date")
+colnames(mergeData2)[2:3]<-c("mean","median")
+mergeData3 <- merge(mergeData, mergeData2, by.x="date", by.y="date", all=T)
+colnames(mergeData3)[2:5]<-c("old mean","old median", "new mean", "new median")
+print(mergeData3)
+```
+
+### Are there differences in activity patterns between weekdays & weekends ?
+```{r}
+## Determine day of week for the dataset
+activity$day <- weekdays(as.Date(as.character(activity$date)))
+activity$weekend <- ifelse(activity$day %in% c("Monday","Tuesday","Wednesday",
+                            "Thursday","Friday"), "Weekdays", "Weekends")
+activity[, 'weekend']<-as.factor(activity[,'weekend'])
+
+## Find the mean total number of steps per interval for both weekdays & weekends
+avgsteps2 <- data.frame(aggregate(steps ~ interval+weekend, activity, mean))
+
+## Plot out two line graphs (one for weekdays & one for weekends) 
+## on mean total number of steps per interval
+qplot(interval, steps, data=avgsteps2, facets=.~weekend, geom="line", ylab="Steps",
+      xlab="Time of Day", main="Average Number of Steps Per 5-min Interval")
+
+```
